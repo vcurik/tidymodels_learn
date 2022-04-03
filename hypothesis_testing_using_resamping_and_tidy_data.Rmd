@@ -166,3 +166,73 @@ gss %>%
 
 # OTHER UTILITIES
 
+The infer package also offers several utilities to extract meaning out of summary statistics and null distributions; the package provides functions to visualize where a statistic is relative to a distribution (with visualize()), calculate p-values (with get_p_value()), and calculate confidence intervals (with get_confidence_interval()).
+
+To illustrate, we’ll go back to the example of determining whether the mean number of hours worked per week is 40 hours.
+
+```{r}
+# find the point estimate
+point_estimate <- gss %>% 
+    specify(response = hours) %>% 
+    calculate(stat = "mean")
+
+# generate a null distribution
+null_dist <- gss %>% 
+    specify(response = hours) %>% 
+    hypothesise(null = "point", mu = 40) %>% 
+    generate(reps = 5000, type = "bootstrap") %>% 
+    calculate(stat = "mean")
+```
+
+(Notice the warning: Removed 1244 rows containing missing values. This would be worth nothing if you were actually carrying out this hypothesis test.)
+
+Our point estimate 41.382 seems pretty close to 40, but a little bit different. We might wonder if this difference is just due to random chance, or if the mean number of hours worked per week in the population really isn’t 40.
+
+We could initially just visualize the null distribution.
+
+```{r}
+null_dist %>% 
+    visualise()
+```
+
+Where does our sample’s observed statistic lie on this distribution? We can use the obs_stat argument to specify this.
+
+```{r}
+null_dist %>% 
+    visualise() + 
+    shade_p_value(obs_stat = point_estimate, direction = "two_sided")
+```
+
+Notice that infer has also shaded the regions of the null distribution that are as (or more) extreme than our observed statistic. (Also, note that we now use the + operator to apply the shade_p_value() function. This is because visualize() outputs a plot object from ggplot2 instead of a dataframe, and the + operator is needed to add the p-value layer to the plot object.) The red bar looks like it’s slightly far out on the right tail of the null distribution, so observing a sample mean of 41.382 hours would be somewhat unlikely if the mean was actually 40 hours. How unlikely, though?
+
+```{r}
+# get a two-tailed p-value
+p_value <- null_dist %>% 
+    get_p_value(obs_stat = point_estimate, direction = "two_sided")
+
+p_value
+
+```
+
+It looks like the p-value is 0.042, which is pretty small—if the true mean number of hours worked per week was actually 40, the probability of our sample mean being this far (1.382 hours) from 40 would be 0.042. This may or may not be statistically significantly different, depending on the significance level α you decided on before you ran this analysis. If you had set α=.05, then this difference would be statistically significant, but if you had set α=.01, then it would not be.
+
+To get a confidence interval around our estimate, we can write:
+
+```{r}
+# start with the null distribution
+null_dist %>% 
+    # calculate he confindence interval around the point estimate
+    get_confidence_interval(point_estimate = point_estimate,
+                            # at the 95% confidence level
+                            level = 0.95,
+                            # using the standard error
+                            type = "se")
+```
+
+As you can see, 40 hours per week is not contained in this interval, which aligns with our previous conclusion that this finding is significant at the confidence level α=.05.
+
+
+# THEORETICAL METHODS
+
+The infer package also provides functionality to use theoretical methods for "Chisq", "F" and "t" test statistics.
+
